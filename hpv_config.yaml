@@ -1,0 +1,76 @@
+# Configuration for Universal and Single Panel primer Snakemake pipeline.
+
+
+# 1) This is where the original bam files can be found. (glob)
+raw_path: /path/to/HPV35/runs/*HPV35*/*bam
+
+# 2) This is where the **REMAPPED** bam files can be found. (glob)
+tmap_path: tmap/*HPV35*/*bam
+
+# 3) Choose panel type: single, universal, or ffpe.
+panel_type: single
+
+# 4) Set the main type of HPV for these samples.
+hpv_type: 35  # just the number, even if universal panel was used
+
+# 5) Set the cohort prefix if applicable. e.g. PAP, IARC, SC
+cohort: IRC
+
+# 6) This is name of the deliverable directory.
+deliver_proj: HPV35_date
+deliver_dir: /path/to/deliver
+
+# 7) Update the parser in the Snakemake file to match the raw bam filenames if needed.
+
+# 8) Update the wrapper.sh script if needed.
+
+# 9) Select mapq threshold.
+aq_filter: 4
+
+# 10) Fix titles in coverage_Snakefile for appropriate Type.
+
+# 11) choose minimum read depth for fasta files
+min_read: 4
+
+# 12) choose cutoff for % Ns in the final fasta
+fasta_n: 75
+
+# 13) choose max # reads for colorbar for coverage clustermap
+cbar_max: 20
+
+# Make sure X forwarding is enabled for ete3 toolkit!!
+# 14) phylo tree params
+ete_wf: none-none-none-fasttree_default
+
+
+#######  Reference Files - Nothing below should be changed between runs!
+
+hpv_reference: # These directories also contain the necessary index and dict files for TMAP
+    single: /path/to/RD_reference/HPV/TMAP_Refs/HPV%sRef_Pad400_hg19/HPV%sRef_Pad400_hg19.fasta
+    universal: /path/to/RD_reference/HPV/TMAP_Refs/HPVRef_Alphas65_Pad400_hg19/HPV_Ref_Alphas65_Pad400_hg19.fasta
+
+amplicon_bed:
+    single: /path/to/RD_reference/HPV/amplicon_single_bed/HPV%s.20161025.designed.bed
+    universal: /path/to/RD_reference/HPV/universal_bed/HPVRef_13Types_Ref_Mapped_hg19_update_HPV16.unmerged-detail.bed
+    ffpe: /path/to/RD_reference/HPV/HPV16_FFPE/WG00038.1_HPV16_FFPE.Designed.bed
+
+len_bed:    # these bed files encompass the full genome from 0..8000 (or whatever)
+    single: /path/to/RD_reference/HPV/len_bed/hpv%s.bed 
+    universal: /path/to/RD_reference/HPV/len_bed/hpv_universal.bed
+    ffpe: /path/to/RD_reference/HPV/len_bed/hpv16.bed
+
+lineage: /path/to/RD_reference/HPV/HPV_lineages/HPV%s_lineages.fasta
+
+# Tools and packages
+
+vc_bin: /path/to/RD_reference/HPV/tvc-5.0.3/bin
+vc_pipe: /path/to/RD_reference/HPV/tvc-5.0.3/bin/variant_caller_pipeline.py
+vc_param: /path/to/RD_reference/HPV/germline_low_stringency_no_het_low_depth.json
+cov_dev: /path/to/RD_reference/HPV/cgrCoverageDev
+glu: /path/to/RD_reference/HPV/glu
+
+# SNPEFF
+# any new HPV types need to be added to the hpv_universal database and the annotations txt below
+snpeff: /path/to/RD_reference/snpEff
+snpeff_bed: /path/to/RD_reference/HPV/universal_annotations_20170106.txt # includes all types
+genes_gtf: /path/to/RD_reference/snpEff/data/hpv_universal/genes.gtf # includes all types

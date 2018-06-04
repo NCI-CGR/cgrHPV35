@@ -1,0 +1,37 @@
+# vim: ft=python
+
+configfile: 'hpv_config.yaml'
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+localrules: ann_all
+
+rule ann_all:
+    input: 
+        expand('tvc_ann/{sampleID}.ann.vcf', sampleID=sampleIDs),
+        'multiqc/snpeff_report.html'
+
+rule annotate:
+    input: 'tvc_vcf/{sampleID}.tvc_no_pad.vcf'
+    output:
+        'tvc_ann/{sampleID}.ann.vcf',
+        'tvc_ann/{sampleID}_snpEff.summary.csv'
+    params:
+        snpeff = config["snpeff"],
+        bed = config["snpeff_bed"],
+        db = 'hpv_universal' # all types use this hpv_universal db
+    run:
+        shell('java -Xmx2g -jar {params.snpeff}/snpEff.jar \
+                -ud 0 -interval {params.bed} \
+                -csvStats \
+                -stats {output[1]} \
+                -c {params.snpeff}/snpEff.config {params.db} {input} > {output[0]}')
+
+#--------------------------------------------------------------------------
+rule snpeff_report:
+    input: expand('tvc_ann/{sampleID}_snpEff.summary.csv', sampleID=sampleIDs)
+    output: 'multiqc/snpeff_report.html'
+    run:
+        shell('multiqc -d tvc_ann -n snpeff_report -o multiqc')
+
+

@@ -1,0 +1,60 @@
+# vim: ft=python
+
+configfile: 'hpv_config.yaml'
+workdir: os.environ['PWD']
+shell.executable('bash')
+
+localrules: all_aa
+
+rule all_aa:
+    input:
+        'aa_convert/' + config['deliver_proj'] + '_aa.fasta',
+        expand('aa/{sampleID}_all_aa.fasta', sampleID=sampleIDs)
+
+rule aa_convert: # only converts the main type and ignores coinfections for now
+    input: 'fasta/{sampleID}_HPV%s.fasta' %config['hpv_type']
+    output: 'aa/{sampleID}_all_aa.fasta'
+    params:
+        gtf = config['genes_gtf'],
+        cols = ['type', 'x1', 'feature', 'start', 'end', 'x2', 'x3', 'x4', 'info']
+    run:
+        # record = SeqIO.parse(input[0], 'fasta').next()
+        # TODO - SeqIOparse().next is throwing an error about no "next" attribute.
+        seq = ''
+        fa_handle = open(input[0], 'r')
+        for record in SeqIO.parse(fa_handle, 'fasta'):
+            seq = str(record.seq)
+            break # this also takes just the first record, it's just longer
+        fa_handle.close()
+        allseq = ''
+
+        df = pandas.read_table(params.gtf, names=params.cols, index_col=False, sep='\t')
+        df = df[df['type'] == 'HPV%s_Ref' %hpv_type].copy()
+        df = df[df['feature'] == 'gene'].copy()
+        df['gene'] = df['info'].apply(lambda x: x.split('"')[1])
+        for row in df.itertuples():
+            n = Seq(seq[int(row.start)-1:int(row.end)])
+            aa = n.translate()
+            allseq += str(aa)
+
+            # create a fasta for each gene for each sampleID
+            fname = 'aa/%s_%s_aa.fasta' %(wildcards.sampleID, row.gene)
+            genefile = open(fname, 'w')
+            genefile.write('>%s_%s\n' %(wildcards.sampleID, row.gene))
+            genefile.write(str(aa) + '\n')
+            genefile.close()
+        # create a fasta with all the genes for each sampleID
+        allfile = open(output[0], 'w')
+        allfile.write('>%s\n' %wildcards.sampleID)
+        allfile.write(allseq + '\n')
+        allfile.close()
+
+#--------------------------------------------------------------------------
+rule aa_cat:
+    input: expand('aa/{sampleID}_all_aa.fasta', sampleID=sampleIDs)
+    output: 'aa_convert/%s_aa.fasta' %config['deliver_proj']
+    run:
+        shell('cat {input} > {output}')
+        for gene in GENES:
+            shell('cat aa/*%s*.fasta > aa_convert/%s_%s_aa.fasta' %(gene, config['deliver_proj'], gene))
+
