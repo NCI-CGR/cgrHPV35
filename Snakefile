@@ -54,17 +54,10 @@ for key, value in itertools.groupby(bamfiles, parse_sampleID):
     if key.startswith(config['cohort']):   # comment this out if you want to keep blanks
         d[key] = list(value)
 
-# We now have a dictionary with the sample ID as the keys and a list of 
-# paths to the bam(s) as the value.
-# e.g. d = {sample01: ['a/sample01.bam', 'b/sample01.bam'],
-#           sample02: ['a/sample02.bam', 'c/sample02.bam'],
-#           sample03: ['d/sample03.bam']}
-
 sampleIDs = d.keys()
 
 TARGETS =   ['reports/%s_N-%d.fasta' %(config['deliver_proj'], config['fasta_n']),
             'reports/type_summary.tsv',
-            expand('pileup/{sampleID}.pileup', sampleID=d.keys()),
             ]
 
 # eventually work these into the config yaml
@@ -98,7 +91,7 @@ rule link:
             shell('mkdir -p %s' %os.path.dirname(params.bam))
             shell('samtools merge {params.bam} {input}')
 
-            # all SM fields in @RG must be identical
+            # all SM fields in @RG must be identical (this is generally only for pre-2016 runs)
             # create a samfile with the fixed header
             sam = pysam.Samfile(params.bam, 'rb')
             header = sam.header
@@ -120,7 +113,7 @@ rule mapq_filter:
     input: rules.link.output
     output: 'mapq_filter/{sampleID}.filtered.bam'
     threads: 2
-    params: 
+    params: # change these to temp snakemake files eventually
         mapq = int(config["aq_filter"]),
         temp = 'temp/{sampleID}/{sampleID}.aq.temp',
         pre =  'temp/{sampleID}/{sampleID}.sort.temp'
@@ -131,10 +124,6 @@ rule mapq_filter:
         shell('samtools index {output}; rm {params.temp}')
 
 #--------------------------------------------------------------------------
-# Note that TMAP automatically left aligns gaps and indels, so the GATK step
-# from the original pipeline was removed.
-#--------------------------------------------------------------------------
-
 rule variant_call:
     input: rules.mapq_filter.output
     output:
@@ -158,7 +147,7 @@ rule variant_call:
         --bin-dir {params.vc_bin} \
         --region-bed {len_bed}')
 
-
+#--------------------------------------------------------------------------
 rule adjust_padding:
     input: rules.variant_call.output[0]
     output: 'tvc_vcf/{sampleID}.tvc_no_pad.vcf'
@@ -241,8 +230,7 @@ rule fasta:
             newseq = seq[:len(seq)-400] # start with the ref sequence and add SNPs
             for idx, row in dt.iterrows():
                 (pos, ref, alt) = (int(row['POS']), row['REF'], row['ALT'].split(',')[0])
-                # Look for SNPs
-                # TODO:  add test for TVC REF matching the REF in the seq string            
+                # Look for SNPs       
                 if len(ref) == len(alt):
                     counter = 0
                     while counter < len(ref):
@@ -294,7 +282,7 @@ rule fasta_cat:
     run:
         shell('cat {input} > {output}')
 
-
+#--------------------------------------------------------------------------
 rule fasta_n:
     input: rules.fasta_cat.output
     output: 'reports/%s_N-%d.fasta' %(config['deliver_proj'], config['fasta_n'])
@@ -314,8 +302,6 @@ rule fasta_n:
         fasta_out = FastaIO.FastaWriter(outfile, wrap=None)
         fasta_out.write_file(keep)
         outfile.close()
-
-
 
 #--------------------------------------------------------------------------
 rule type_summary:
